@@ -1,22 +1,13 @@
 const express = require("express");
-const { connectDB, connectdb } = require("../../database/connection");
-const { sha512, sha384, sha512_256, sha512_224 } = require('js-sha512');
+const { connectDB } = require("../../database/connection");
+const { validateSignup } = require("../../utils/validation");
+const { sha512 } = require('js-sha512');
 
 const route = express.Router();
 
+// Note: Validation is now handled by middleware in routes/user.js
 route.post('/', connectDB, (req, res) => {
     try {
-        console.log(req.body);
-
-        // Validate required fields
-        if (!req.body.roll_number || !req.body.u_name || !req.body.mail || !req.body.pass) {
-            req.conn.release();
-            return res.status(400).json({
-                success: false,
-                message: 'All fields are required'
-            });
-        }
-
         // Use parameterized query to prevent SQL injection
         const signUpQuery = `INSERT INTO ${req.db}.user (roll_number, u_name, mail, pass) VALUES (?, ?, ?, ?)`;
         const values = [
@@ -27,12 +18,11 @@ route.post('/', connectDB, (req, res) => {
         ];
 
         req.conn.query(signUpQuery, values, (err, result) => {
-            req.conn.release(); // Release connection back to pool
+            req.conn.release();
 
             if (err) {
                 console.error('Signup error:', err);
 
-                // Check for duplicate email error
                 if (err.code === 'ER_DUP_ENTRY') {
                     return res.status(409).json({
                         success: false,
@@ -40,7 +30,6 @@ route.post('/', connectDB, (req, res) => {
                     });
                 }
 
-                // Check for email constraint violation
                 if (err.code === 'ER_CHECK_CONSTRAINT_VIOLATED') {
                     return res.status(400).json({
                         success: false,

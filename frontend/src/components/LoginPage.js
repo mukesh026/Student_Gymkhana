@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS, apiCall } from '../config/api';
 import './Login.css';
 
 const LoginPage = () => {
@@ -24,19 +25,10 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3300/apis/v1/user/login', {
+      const data = await apiCall(API_ENDPOINTS.LOGIN, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(form),
       });
-
-      const data = await response.json();
-
-      if (response.status !== 200) {
-        throw new Error(data.message || 'Login failed. Please try again.');
-      }
 
       // Store authentication data
       localStorage.setItem('token', data.token);
@@ -46,7 +38,7 @@ const LoginPage = () => {
       // Redirect to home page
       window.location.href = '/';
     } catch (error) {
-      setError(error.message);
+      setError(error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

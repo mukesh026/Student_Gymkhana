@@ -6,6 +6,7 @@ const passport = require('passport');
 const session = require('express-session');
 const { connectDB, connectdb } = require("./database/connection");
 const cors = require("cors");
+const rateLimit = require('express-rate-limit');
 require("./utils/login_with_google");
 require("dotenv").config();
 
@@ -45,6 +46,37 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Rate limiting for authentication endpoints
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 requests per window
+    message: {
+        success: false,
+        message: 'Too many authentication attempts, please try again after 15 minutes'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Rate limiting for general API endpoints
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+    message: {
+        success: false,
+        message: 'Too many requests, please try again later'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply rate limiting to auth routes
+app.use('/apis/v1/user/login', authLimiter);
+app.use('/apis/v1/user/signup', authLimiter);
+
+// Apply general rate limiting to all API routes
+app.use('/apis/v1', apiLimiter);
 
 // Google OAuth callback
 app.get('/auth/google/callback',

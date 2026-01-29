@@ -13,19 +13,10 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET || (() => {
 })();
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h';
 
+// Note: Validation is now handled by middleware in routes/user.js
 route.post('/', connectDB, (req, res) => {
     try {
         const { field, pass } = req.body;
-
-        // Validate input
-        if (!field || !pass) {
-            req.conn.release();
-            return res.status(400).json({
-                success: false,
-                message: 'Username/email and password are required'
-            });
-        }
-
         const hashedPass = sha512(pass);
 
         const loginQuery = `
@@ -44,11 +35,9 @@ route.post('/', connectDB, (req, res) => {
             }
 
             if (result.length === 1) {
-                // Generate JWT token
                 const user = result[0];
                 const token = jwt.sign({ userId: user.mail }, JWT_SECRET_KEY, { expiresIn: JWT_EXPIRY });
 
-                // Send the token in the response
                 return res.json({
                     success: true,
                     token,
