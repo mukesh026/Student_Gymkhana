@@ -28,36 +28,41 @@
 const express = require("express");
 const { connectDB } = require("../../database/connection");
 const { sha512 } = require('js-sha512');
-const jwt = require('jsonwebtoken'); // For generating a token
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const route = express.Router();
 
-// Replace with your secret key for JWT
-const JWT_SECRET_KEY = "yourSecretKey";
+// Get JWT secret from environment variable
+const JWT_SECRET_KEY = process.env.JWT_SECRET || (() => {
+    console.warn('WARNING: JWT_SECRET not set in environment variables. Using default (INSECURE)');
+    return 'default_insecure_secret_please_change';
+})();
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h';
 
 route.post('/', connectDB, (req, res) => {
     try {
         const { field, pass } = req.body;
         const hashedPass = sha512(pass); // Hash the password
-        
+
         const loginQuery = `
             SELECT * FROM ${req.db}.user WHERE (u_name = ? OR mail = ?) AND pass = ?
         `;
-        
+
         req.conn.query(loginQuery, [field, field, hashedPass], (err, result) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ message: 'Internal server error' });
             }
-            
+
             if (result.length === 1) {
                 // Generate JWT token
-                const user = result[0];  // Assuming result[0] has user data
-                const token = jwt.sign({ userId: user.id }, JWT_SECRET_KEY, { expiresIn: '1h' });
-                
+                const user = result[0];
+                const token = jwt.sign({ userId: user.mail }, JWT_SECRET_KEY, { expiresIn: JWT_EXPIRY });
+
                 // Send the token in the response
                 return res.json({
-                    token, 
+                    token,
                     message: 'Login successful',
                     user: {
                         id: user.id,
