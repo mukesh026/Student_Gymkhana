@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate from react-router-dom
-import './Signup.css'; // Import the CSS file for styling
+import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS, apiCall } from '../config/api';
+import './Signup.css';
 
 const SignUpPage = () => {
   const [form, setForm] = useState({
@@ -12,8 +13,7 @@ const SignUpPage = () => {
   });
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Use navigate to redirect to the login page
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -25,54 +25,41 @@ const SignUpPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null); // Reset error message
-    setSuccessMessage(''); // Reset success message
+    setError(null);
+    setSuccessMessage('');
 
-    // Check if passwords match
+    // Client-side validation
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (!form.email.endsWith('@iitj.ac.in')) {
+      setError("Please use your IIT Jodhpur email (@iitj.ac.in).");
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // Use the actual backend URL here
-      const response = await fetch('http://localhost:3300/apis/v1/user/signup', {
+      const data = await apiCall(API_ENDPOINTS.SIGNUP, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           roll_number: form.rollnumber,
           u_name: form.username,
           mail: form.email,
-          pass: form.password, // Send password in the request body
+          pass: form.password,
         }),
       });
 
-      // Handling based on status code
-      if (response.status !== 201) { // Check explicitly for 201 success status
-        const errorData = await response.json();
-        
-        // Handle specific status codes
-        switch (response.status) {
-          case 400:
-            throw new Error(errorData.message || 'Bad request. Please check the entered details.');
-          case 409:
-            throw new Error(errorData.message || 'Email or username already exists.');
-          case 500:
-            throw new Error('Internal server error. Please try again later.');
-          default:
-            throw new Error(errorData.message || 'Sign-up failed. Please try again.');
-        }
-      }
+      setSuccessMessage("Sign-up successful! Redirecting to login...");
 
-      // On successful sign-up, set success message
-      setSuccessMessage("Sign-up successful! Please log in.");
-      
-      // Redirect to the login page
-      navigate('/login'); // Redirect to login page
-
-      // Optionally, clear form on successful sign-up
+      // Clear form
       setForm({
         username: '',
         rollnumber: '',
@@ -81,60 +68,15 @@ const SignUpPage = () => {
         confirmPassword: '',
       });
 
-      console.log('Sign-up successful');
-    } catch (error) {
-      setError(error.message);
-      console.error('Error during sign-up:', error);
-    }
-  };
-
-  // Handler for Google Sign Up
-  const handleGoogleSignUp = async () => {
-    setError(null); // Reset error message
-    setSuccessMessage(''); // Reset success message
-
-    try {
-      const response = await fetch('http://localhost:3300/apis/v1/user/signup_with_google', {
-        method: 'GET',  // Google sign-up is a GET request
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (response.status !== 200) {
-        const errorData = await response.json();
-        switch (response.status) {
-          case 400:
-            throw new Error(errorData.message || 'Bad request. Please try again.');
-          case 409:
-            throw new Error(errorData.message || 'Email or username already exists.');
-          case 500:
-            throw new Error('Internal server error. Please try again later.');
-          default:
-            throw new Error(errorData.message || 'Sign-up failed. Please try again.');
-        }
-      }
-
-      // On successful Google sign-up, set success message
-      setSuccessMessage("Google sign-up successful! Please log in.");
-      
-      // Redirect to the login page
-      navigate('/login'); // Redirect to login page
-
-      console.log('Google sign-up successful');
-
-      // Optionally, clear form on successful sign-up
-      setForm({
-        username: '',
-        rollnumber: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-      });
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
 
     } catch (error) {
-      setError(error.message);
-      console.error('Error during Google sign-up:', error);
+      setError(error.message || 'Sign-up failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -150,16 +92,19 @@ const SignUpPage = () => {
             value={form.username}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
-          <label>Email</label>
+          <label>Email (IIT Jodhpur)</label>
           <input
             type="email"
             name="email"
             value={form.email}
             onChange={handleChange}
+            placeholder="yourname@iitj.ac.in"
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
@@ -170,16 +115,18 @@ const SignUpPage = () => {
             value={form.rollnumber}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
-          <label>Password</label>
+          <label>Password (min 8 characters)</label>
           <input
             type="password"
             name="password"
             value={form.password}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
@@ -190,16 +137,19 @@ const SignUpPage = () => {
             value={form.confirmPassword}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </div>
-        <button type="submit" className="signup-btn">Sign Up</button>
+        <button type="submit" className="signup-btn" disabled={loading}>
+          {loading ? 'Signing up...' : 'Sign Up'}
+        </button>
       </form>
 
       {error && <div className="error-message">{error}</div>}
       {successMessage && <div className="success-message">{successMessage}</div>}
 
       <div className="google-signup">
-        <button className="google-btn" onClick={handleGoogleSignUp}>Sign Up with Google</button>
+        <button className="google-btn">Sign Up with Google</button>
       </div>
     </div>
   );
